@@ -1,0 +1,322 @@
+---
+title: "econ4274_problem_set_3"
+author: "Man Adrian Ho Hin"
+date: '2023-04-20'
+output: word_document
+---
+
+## Question 1a
+```{r}
+rm(list=ls())
+DATA = read.csv("cigarette.csv")
+
+p0_2000=mean(DATA$C2000[which(DATA$TAX==0)])
+p1_2000=mean((DATA$C2000[which(DATA$TAX==1)]))
+p0_2006=mean(DATA$C2006[which(DATA$TAX==0)])
+p1_2006=mean((DATA$C2006[which(DATA$TAX==1)]))
+p0_p1_diff_2000=p1_2000-p0_2000
+p0_p1_diff_2006=p1_2006-p0_2006
+
+d0=p0_2006-p0_2000
+d1=p1_2006-p1_2000
+DID=p0_p1_diff_2006-p0_p1_diff_2000
+```
+
+## Question 1b
+```{r}
+library(stargazer)
+temp1 = cbind(DATA$TAX, DATA$C2000,0)
+temp2 = cbind(DATA$TAX, DATA$C2006,1)
+temp_data = rbind(temp1,temp2)
+colnames(temp_data) = c("TAX", "consumption", "y2006")
+
+m1=lm(temp_data[,2]~temp_data[,3]+temp_data[,1]+temp_data[,3]*temp_data[,1])
+stargazer(m1, type="html", out="Q1b.html")
+```
+
+## Question 2a
+```{r}
+rm(list=ls())
+library(foreign)
+data = read.dta("colony.dta")
+
+base = subset(data, baseco == 1)
+head(base)
+base_without = subset(base, rich4 == 0)
+head(base_without)
+```
+
+## Question 2b
+```{r}
+# figure 1
+plot(base$logem4, base$logpgp95, 
+     main = "REDUCED-FORM RELATIONSHIP BETWEEN INCOME AND SETTLER MORTALITY",
+     cex.main=0.8,
+     xlab = "Log of Settler Mortality",
+     ylab = "Log GDP per capita, PPP, 1995",
+     xaxt='n',
+     yaxt='n',
+     xlim = c(2,8), 
+     ylim = c(4,10), 
+     type="n")
+text(base$logem4, base$logpgp95, labels = base$shortnam, cex = 0.5)
+axis(side=1, at=seq(2, 8, by=2))
+axis(side=2, at=seq(4, 10, by=2))
+clip(x1 = 2,
+     x2 = 8,
+     y1 = 4,
+     y2 = 10)
+abline(lm(logem4~logpgp95, data = base), lwd=2)
+
+# figure 2
+plot(base$avexpr, base$logpgp95, 
+     main = "OLS RELATIONSHIP BETWEEN EXPROPRIATION RISK AND INCOME",
+     cex.main=0.8,
+     xlab = "Average Expropriation Risk 1985-95",
+     ylab = "Log GDP per capita, PPP, 1995",
+     xaxt='n',
+     yaxt='n',
+     xlim = c(3,10), 
+     ylim = c(4,11), 
+     type="n")
+text(base$avexpr, base$logpgp95, labels = base$shortnam, cex = 0.5)
+axis(side=1, at=seq(4, 10, by=2))
+axis(side=2, at=seq(4, 10, by=2))
+clip(x1 = 3,
+     x2 = 10,
+     y1 = 4,
+     y2 = 10)
+abline(lm(logpgp95~avexpr, data = base), lwd=2)
+```
+
+
+## Question 2c
+```{r}
+# Panel C: Ordinary Least Squares
+ols1=lm(logpgp95~avexpr,data=base)
+ols2=lm(logpgp95~avexpr+lat_abst,data=base)
+ols3=lm(logpgp95~avexpr,data=base_without)
+ols4=lm(logpgp95~avexpr+lat_abst,data=base_without)
+stargazer(ols1, ols2, ols3, ols4, type="html", out="Q2cC.html")
+
+# Panel B: First Stage for Average Protection Against Expropriation Risk in 1985–1995
+f1=lm(avexpr~logem4,data=base) 
+f2=lm(avexpr~logem4+lat_abst,data=base)
+f3=lm(avexpr~logem4,data=base_without)
+f4=lm(avexpr~logem4+lat_abst,data=base_without)
+stargazer(f1, f2,f3,f4, type = "html", out="Q2cB.html")
+
+# Panel A: Two-Stage Least Squares
+library(AER)
+iv1=ivreg(logpgp95~avexpr |  
+            logem4 
+          ,data=base)
+iv2=ivreg(logpgp95~avexpr+lat_abst |   
+            logem4+lat_abst
+          ,data=base)
+iv3=ivreg(logpgp95~avexpr |     
+            logem4
+          ,data=base_without)
+iv4=ivreg(logpgp95~avexpr+lat_abst |     
+            logem4+lat_abst
+          ,data=base_without)
+stargazer(iv1,iv2,iv3,iv4, type = "html", out="Q2cA.html")
+```
+
+## Question 3a
+```{r}
+rm(list=ls())
+DATA = read.csv("card.csv")
+
+lm1=lm(lwage76~educ, data=DATA)
+lm2=lm(lwage78~educ, data=DATA)
+lm3=lm(lwage80~educ, data=DATA)
+
+plot(lwage76~educ, 
+     data=DATA,
+     pch=18,
+     col = "grey",
+     xlab="years of schooling, 1976",
+     ylab="log(wage), 1976",
+     main=paste0("(A)slope= ",round(lm1$coefficients[2],4)),
+     ylim=c(3,8))
+axis(side=1, at=seq(0, 15, by=5))
+abline(lm1, lwd=2)
+
+plot(lwage78~educ, 
+     data=DATA,
+     pch=18,
+     col = "grey",
+     xlab="years of schooling, 1976",
+     ylab="log(wage), 1978",
+     main=paste0("(B)slope= ",round(lm2$coefficients[2],4)),
+     ylim=c(3,8))
+axis(side=1, at=seq(0, 15, by=5))
+abline(lm2, lwd=2)
+
+plot(lwage80~educ, 
+     data=DATA,
+     pch=18,
+     col = "grey",
+     xlab="years of schooling, 1976",
+     ylab="log(wage), 1980",
+     main=paste0("(C)slope= ",round(lm3$coefficients[2],4)),
+     ylim=c(3,8))
+axis(side=1, at=seq(0, 15, by=5))
+abline(lm3, lwd=2)
+
+
+```
+
+## Question 3b
+```{r}
+ols1=lm(lwage76~educ+kww+iq+age+black+smsa+south+famed, data=DATA)
+ols2=lm(lwage78~educ+kww+iq+age+black+smsa+south+famed, data=DATA)
+ols3=lm(lwage80~educ+kww+iq+age+black+smsa+south+famed, data=DATA)
+
+library(stargazer)
+stargazer(ols1,ols2,ols3,type="html", out="Q3b.html")
+```
+
+## Question 3c
+```{r}
+f1=lm(educ~nearc2+kww+iq+age+black+smsa+south+famed,data=DATA)
+f2=lm(educ~nearc4+kww+iq+age+black+smsa+south+famed,data=DATA)
+f3=lm(educ~nearc4a+kww+iq+age+black+smsa+south+famed,data=DATA)
+f4=lm(educ~nearc4b+kww+iq+age+black+smsa+south+famed,data=DATA)
+
+cat("The t-value of nearc2 from f1 (model) = ", summary(f1)$coefficients[2, 3],"\n")
+cat("The t-value of nearc4 from f2 (model) = ", summary(f2)$coefficients[2, 3],"\n")
+cat("The t-value of nearc4a from f3 (model) = ",summary(f3)$coefficients[2, 3],"\n")
+cat("The t-value of nearc4b from f4 (model) = ",summary(f4)$coefficients[2, 3],"\n")
+
+stargazer(f1,f2,f3,f4,type="text")
+
+# Since the t-values of nearc4b < nearc2 < nearc4a < nearc4, therefore nearc4a and nearc4 are the 2 IVs that most correlated with educ
+```
+
+## Question 3d
+```{r}
+ols1=lm(lwage76~educ+kww+iq+age+black+smsa+south+famed, data=DATA)
+ols2=lm(lwage78~educ+kww+iq+age+black+smsa+south+famed, data=DATA)
+ols3=lm(lwage80~educ+kww+iq+age+black+smsa+south+famed, data=DATA)
+
+iv1=ivreg(lwage76~educ+kww+iq+age+black+smsa+south+famed |  
+            nearc4+nearc4a+kww+iq+age+black+smsa+south+famed
+          ,data=DATA)
+iv2=ivreg(lwage78~educ+kww+iq+age+black+smsa+south+famed |  
+            nearc4+nearc4a+kww+iq+age+black+smsa+south+famed
+          ,data=DATA)
+iv3=ivreg(lwage80~educ+kww+iq+age+black+smsa+south+famed |  
+            nearc4+nearc4a+kww+iq+age+black+smsa+south+famed
+          ,data=DATA)
+
+stargazer(ols1,iv1,ols2,iv2,ols3,iv3,type="html", out="Q3d.html")
+```
+
+## Question 3e
+```{r}
+DATA = read.csv("card.csv")
+
+DATA$work76 <- with(DATA, ifelse(is.na(DATA$wage76), 0, 1))
+DATA$work78 <- with(DATA, ifelse(is.na(DATA$wage78), 0, 1))
+DATA$work80 <- with(DATA, ifelse(is.na(DATA$wage80), 0, 1))
+
+logit1=glm(work76~educ+kww+iq+age+black+smsa+south+famed,data=DATA,family=binomial(link="logit"))
+logit2=glm(work78~educ+kww+iq+age+black+smsa+south+famed,data=DATA,family=binomial(link="logit"))
+logit3=glm(work80~educ+kww+iq+age+black+smsa+south+famed,data=DATA,family=binomial(link="logit"))
+probit1=glm(work76~educ+kww+iq+age+black+smsa+south+famed,data=DATA,family=binomial(link="probit"))
+probit2=glm(work78~educ+kww+iq+age+black+smsa+south+famed,data=DATA,family=binomial(link="probit"))
+probit3=glm(work80~educ+kww+iq+age+black+smsa+south+famed,data=DATA,family=binomial(link="probit"))
+
+stargazer(logit1,probit1,logit2,probit2,logit3,probit3,type="html",out="Q3e.html")
+```
+
+## Question 4a
+```{r}
+library(MASS)
+rm(list=ls())
+
+set.seed(4274)
+
+beta1 = 1
+beta2 = 0.5
+beta3 = 2
+
+data_gen = function(n){
+  temp =  mvrnorm(n, c(0,0), matrix(c(1,0.8,0.8,1), 2,2))
+  e = temp[,1]
+  u = temp[,2]
+  z1 = rnorm(n,1,1)
+  z2 = rgamma(n,2)
+  z3 = rnorm(n,2,0.5)
+  x1 = rnorm(n,1,2)
+  x2 = z1 + 0.5*z2 + 0.01*z3 + u
+  y = beta1 +beta2*x1 +beta3*x2 +e
+  output = NULL
+  output = cbind(y, x1, x2, z1, z2, z3, e, u)
+}
+
+beta1_hat = NULL
+beta2_hat = NULL
+beta3_hat = NULL
+nseq=seq(100,5000,by = 100)
+for(i in nseq){
+  DATA = data_gen(i)
+  ols = lm(DATA[,'y']~DATA[,'x1']+DATA[,'x2'])
+  beta1_hat = rbind(beta1_hat, ols$coefficients[1])
+  beta2_hat = rbind(beta2_hat, ols$coefficients[2])
+  beta3_hat = rbind(beta3_hat, ols$coefficients[3])
+}
+
+plot(nseq, beta1_hat, type="l", ylim=c(0.1,1.5))
+abline(h=beta1,col=2,lty=2)
+
+plot(nseq, beta2_hat, type="l", ylim=c(0.2,0.8))
+abline(h=beta2,col=2,lty=2)
+
+plot(nseq, beta3_hat, type="l", ylim=c(1.5,3))
+abline(h=beta3,col=2,lty=2)
+```
+
+## Question 4b
+```{r}
+set.seed(4274)
+n = 100
+DATA = data_gen(n)
+
+library(AER)
+
+iv1=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z1'])
+iv2=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z2'])
+iv3=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z3'])
+
+stargazer(iv1,iv2,iv3,type="html",out="Q4b.html")
+```
+
+## Question 4c
+```{r}
+set.seed(4274)
+n = 100
+DATA = data_gen(n)
+
+ols=lm(DATA[,'y']~DATA[,'x1']+DATA[,'x2'])
+iv1=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z1'])
+iv2=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z2'])
+iv3=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z3'])
+iv4=ivreg(DATA[,'y']~DATA[,'x1']+DATA[,'x2'] | DATA[,'x1']+DATA[,'z1']+DATA[,'z2']+DATA[,'z3'])
+
+stargazer(ols,iv1,iv2,iv3,iv4,type="html",out="Q4c.html")
+```
+
+## Question 4d
+```{r}
+
+```
+
+
+
+
+
+
+

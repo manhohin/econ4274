@@ -1,0 +1,175 @@
+---
+title: "Econ4274_problem_set_2"
+author: "Man Adrian Ho Hin"
+date: '2023-03-14'
+output:
+  word_document: default
+  pdf_document: default
+---
+
+```{r}
+rm(list=ls())
+setwd("/Users/adrian/Desktop/econ4274_problem_set_2")
+```
+
+# Question 1a
+```{r}
+library(stargazer)
+sat = read.csv("SAT.csv")
+stargazer(sat, type="html",out="sat.html")
+```
+
+# Question 1b
+```{r}
+par(mfcol = c(2, 2))
+with(sat, hist(GPA))
+with(sat, hist(SAT))
+with(sat, hist(APMath))
+with(sat, hist(APEng))
+```
+
+# Question 1c
+```{r}
+with(sat, plot(SAT, GPA, main = "Scatter plot of SAT and GPA"))
+abline(lm(GPA~SAT, data = sat), col = "red")
+lines(lowess(sat$SAT, sat$GPA), col="blue")
+```
+
+# Question 1d
+```{r}
+# i
+x_1 = rep(1,length(sat$SAT))
+
+# ii 
+X = with(sat, matrix(c(x_1,SAT,APMath,APEng,ESL,gender,race),nrow=length(SAT)))
+
+# iii
+y = sat$GPA
+
+# iv
+beta_hat = solve(t(X) %*% X) %*% t(X) %*% y
+beta_hat = t(beta_hat)
+colnames(beta_hat)=c("Intercept","SAT","APMath","APEng","ESL","gender","race")
+
+# v 
+lm1 = with(sat, lm(GPA~SAT+APMath+APEng+ESL+gender+race))
+cat("By matrix algebra: \n")
+print(beta_hat)
+cat("\n")
+cat("By lm() function: \n")
+print(lm1$coefficients)
+```
+
+# Question 2
+```{r}
+rm(list=ls())
+drug_price = read.csv("drug_price.csv")
+
+# Base Model
+lm1 = with(drug_price, lm(p.r~GDP.r))
+# Model with consumption related factors
+lm2 = with(drug_price, lm(p.r~GDP.r+cv+cv.r))
+# Model with pricing related factors
+lm3 = with(drug_price, lm(p.r~GDP.r+p.control+p.comp))
+# Model with legal restriction factors
+lm4 = with(drug_price, lm(p.r~GDP.r+patent))
+# Full Model
+lm5 = with(drug_price, lm(p.r~GDP.r+cv+cv.r+p.control+p.comp+patent))
+
+library(stargazer)
+stargazer(lm1,lm2,lm3,lm4,lm5,type="html",out = "models1.html")
+
+# The GDP.r is highly significant among all the models and its coefficient values having some level of variations, therefore we may compare the adjusted r^2 for the model improvement. The full model has the highest r^2 and the model with pricing factor has the 2nd highest r^2
+
+# Model with pricing related factors
+lm5 = with(drug_price, lm(p.r~GDP.r+p.control+p.comp))
+# Model with pricing related factors & consumption related factors
+lm6 = with(drug_price, lm(p.r~GDP.r+p.control+p.comp+cv+cv.r))
+# Model with pricing related factors & legal restriction factors
+lm7 = with(drug_price, lm(p.r~GDP.r+p.control+p.comp+patent))
+# Full Model
+lm8 = with(drug_price, lm(p.r~GDP.r+p.control+p.comp+cv+cv.r+patent))
+
+stargazer(lm5,lm6,lm7,lm8,type="html",out = "models2.html")
+
+# Again, the GDP.r is highly significant among all the models. The best model seems to be either lm6 or the full model, although they has higher standard error in GDP.r coefficient, they has the highest 2 r^2 value.
+
+# Use anova to verify the result
+anova(lm6,lm8)
+
+# So anova suggest that lm6 is the best model as not rejecting the F-test, which implies that including the patent variable cannot create significant difference.
+
+# Compare to the remaining model
+modelname = c("lm1","lm2","lm3","lm4","lm7")
+
+for(i in modelname){
+  cat("\n", i, "vs lm6:\n")
+  print(anova(get(i), lm6))
+}
+
+# Which support our claim which lm6 is the best model as rejecting all the F-test above.
+
+par(mfcol = c(2, 2))
+plot(p.r~GDP.r,data=drug_price,pch=20,main="Base Model")
+points(drug_price$GDP.r,lm1$fitted.values,pch=17,col=2)
+
+plot(p.r~GDP.r,data=drug_price,pch=20,main="Full Model")
+points(drug_price$GDP.r,lm8$fitted.values,pch=17,col=2)
+
+plot(p.r~GDP.r,data=drug_price,pch=20,main="lm2")
+points(drug_price$GDP.r,lm2$fitted.values,pch=17,col=2)
+
+plot(p.r~GDP.r,data=drug_price,pch=20,main="lm6 (Best Model)")
+points(drug_price$GDP.r,lm6$fitted.values,pch=17,col=2)
+```
+
+# Question 3a
+```{r}
+rm(list=ls())
+library(stargazer)
+tsssu = read.csv("TSSSU.csv")
+
+stargazer(tsssu,type="html",out="tsssu.html")
+```
+
+# Question 3b
+```{r}
+with(tsssu, hist(amount))
+with(tsssu, plot(Employee, amount, main = "Scatter plot of Employee & amount"))
+```
+
+# Question 3c
+```{r}
+library(stargazer)
+
+tsssu$f.university=as.factor(tsssu$university)
+tsssu$f.year=as.factor(tsssu$year)
+tsssu$f.area=as.factor(tsssu$area)
+
+m1 = lm(survive~amount+No_undergrad+No_postgrad+No_professor+f.university+f.year+f.area,data = tsssu)
+m2 = lm(Employee~amount+No_undergrad+No_postgrad+No_professor+f.university+f.year+f.area,data = tsssu)
+m3 = lm(social_media~amount+No_undergrad+No_postgrad+No_professor+f.university+f.year+f.area,data = tsssu)
+m4 = lm(phone_call~amount+No_undergrad+No_postgrad+No_professor+f.university+f.year+f.area,data = tsssu)
+m5 = lm(private_fund~amount+No_undergrad+No_postgrad+No_professor+f.university+f.year+f.area,data = tsssu)
+m6 = lm(Sciencepark~amount+No_undergrad+No_postgrad+No_professor+f.university+f.year+f.area,data = tsssu)
+
+# Further modify in the excel
+stargazer(m1,m2,m3,m4,m5,m6,type="html",out="regtab.html")
+```
+
+# Question 3d
+```{r}
+area = aggregate(amount~area, data=tsssu, sum)
+area = area[order(area$amount, decreasing = FALSE),]
+
+png("barchart.png",width=900,height=500)
+par(mar=c(3,20,1,1)) 
+barplot(area$amount,names.arg = area$area, 
+        las=1,
+        horiz=TRUE)
+dev.off()
+```
+
+
+
+

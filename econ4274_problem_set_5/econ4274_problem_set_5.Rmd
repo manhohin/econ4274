@@ -1,0 +1,234 @@
+---
+title: "Econ4274_problem_set_4"
+author: "Man Adrian Ho Hin"
+date: '2023-05-21'
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1a
+```{r}
+rm(list=ls())
+set.seed(1)
+
+n = 200
+e = rnorm(n,0,1)
+x = rgamma(n,2)
+beta_0 = 1
+beta_1 = 0.5
+y = beta_0+beta_1*x+e
+
+DATA = cbind(y, x)
+```
+
+# Question 1b
+```{r}
+m1 = lm(y~x)
+print(c("The beta_1_hat: ", summary(m1)$coefficients[2]))
+print(c("The standard error: ", summary(m1)$coefficients[4]))
+```
+
+# Question 1c
+```{r}
+B=500
+n=200
+w=cbind(x,y)
+initial=rep(0.1,2)
+
+Q<-function(beta){
+  ehat=y-beta[1]-beta[2]*x
+  RSS=sum(ehat^2)
+  return(RSS)
+}
+
+bbetamat=NULL
+for (b in 1:B){
+  brow=sample(1:n,n,replace=TRUE)
+  bsample=w[brow,]  #bootstrap sample
+  x=bsample[,1]; y=bsample[,2]   
+  nls=optim(initial,Q)
+  bbeta=nls$par
+  bbetamat=rbind(bbetamat,bbeta)
+}
+bse2=sd(bbetamat[,2])
+print(c("The bootstrap standard error for beta_1: ", bse2))
+```
+
+# Question 1d
+```{r}
+S = 500
+n = 200
+
+betamat=NULL
+for (s in 1:S){
+  #Generate a new sample using the known DGP
+  e = rnorm(n,0,1)
+  x = rgamma(n,2)
+  y = beta_0+beta_1*x+e
+  #estimte beta for each newly drawn sample
+  nls=optim(initial,Q)
+  betahat=nls$par
+  betamat=rbind(betamat,betahat)
+}
+truese2=sd(betamat[,2])
+print(c("The bootstrap standard error for beta_1: ", truese2))
+```
+
+# Question 1e
+```{r}
+rm(list=ls())
+set.seed(1)
+
+B = 500
+S = 500
+n_mat = c(100,200,500)
+
+initial=rep(0.1,2)
+
+Q<-function(beta){
+  ehat=y-beta[1]-beta[2]*x
+  RSS=sum(ehat^2)
+  return(RSS)
+}
+
+for (n_m in n_mat){
+  n = n_m
+  e = rnorm(n,0,1)
+  x = rgamma(n,2)
+  beta_0 = 1
+  beta_1 = 0.5
+  y = beta_0+beta_1*x+e
+  
+  # asympotic
+  m1 = lm(y~x)
+  ase = summary(m1)$coefficients[4]
+  
+  # bootstrap
+  w=cbind(x,y)
+  bbetamat=NULL
+  for (b in 1:B){
+    brow=sample(1:n,n,replace=TRUE)
+    bsample=w[brow,]  #bootstrap sample
+    x=bsample[,1]; y=bsample[,2]   
+    nls=optim(initial,Q)
+    bbeta=nls$par
+    bbetamat=rbind(bbetamat,bbeta)
+  }
+  bse2=sd(bbetamat[,2])
+    
+  # True
+  betamat=NULL
+  for (s in 1:S){
+    #Generate a new sample using the known DGP
+    e = rnorm(n,0,1)
+    x = rgamma(n,2)
+    y = beta_0+beta_1*x+e
+    #estimte beta for each newly drawn sample
+    nls=optim(initial,Q)
+    betahat=nls$par
+    betamat=rbind(betamat,betahat)
+  }
+  truese2=sd(betamat[,2])
+  
+  cat("N =",n_m,":")
+  print(c(ase,bse2,truese2))
+}
+```
+
+# Question 2a
+```{r}
+library(FNN)
+library(np)
+rm(list=ls())
+DATA = read.csv("ipod.csv")
+
+DATA=DATA[order(DATA$BIDRS),] 
+
+OLS1 = lm(PRICE~BIDRS, data=DATA)
+KNN1 = knn.reg(DATA$BIDRS,y=DATA$PRICE,k=1)
+KNN5 = knn.reg(DATA$BIDRS,y=DATA$PRICE,k=5)
+KNN10 = knn.reg(DATA$BIDRS,y=DATA$PRICE,k=10)
+KNN15 = knn.reg(DATA$BIDRS,y=DATA$PRICE,k=15)
+bw = npregbw(PRICE~BIDRS,data=DATA,bwmethod="cv.ls") 
+npest=npreg(bw)
+
+# OLS
+plot(DATA$PRICE~DATA$BIDRS,pch=20,main="OLS")
+lines(DATA$BIDRS,OLS1$fitted.values,col=2)
+# KNN1
+plot(DATA$PRICE~DATA$BIDRS,pch=20,main="K=1")
+lines(DATA$BIDRS,KNN1$pred,col=2)
+# KNN5
+plot(DATA$PRICE~DATA$BIDRS,pch=20,main="K=5")
+lines(DATA$BIDRS,KNN5$pred,col=2)
+# KNN10
+plot(DATA$PRICE~DATA$BIDRS,pch=20,main="K=10")
+lines(DATA$BIDRS,KNN10$pred,col=2)
+# KNN15
+plot(DATA$PRICE~DATA$BIDRS,pch=20,main="K=15")
+lines(DATA$BIDRS,KNN15$pred,col=2)
+# npest
+plot(npest, main="Nonparametric Regression")
+points(PRICE~BIDRS,data=DATA,pch=20)
+```
+
+# Question 2b
+```{r}
+x=cbind(DATA$BIDRS,DATA$PRICE)
+k2=kmeans(x,centers=2)
+k3=kmeans(x,centers=3)
+k4=kmeans(x,centers=4)
+k5=kmeans(x,centers=5)
+
+plot(DATA$BIDRS,DATA$PRICE,pch=20,col=k2$cluster,main="k=2")
+plot(DATA$BIDRS,DATA$PRICE,pch=20,col=k3$cluster,main="k=3")
+plot(DATA$BIDRS,DATA$PRICE,pch=20,col=k4$cluster,main="k=4")
+plot(DATA$BIDRS,DATA$PRICE,pch=20,col=k5$cluster,main="k=5")
+```
+
+# Question 3a
+```{r}
+rm(list=ls())
+DATA = read.csv("psid.ps5.csv")
+y=DATA$wagert
+x=as.matrix(DATA)[,-5]
+
+OLS = lm(y~x, data=DATA)
+R2_OLS = summary(OLS)$r.squared
+R2_OLS
+```
+
+# Question 3b
+```{r}
+library(lars)
+set.seed(1)
+
+lasso=lars(y=y,x=x,type="lasso",trace=TRUE)
+plot(lasso)
+```
+
+# Question 3c
+```{r}
+cvlasso=cv.lars(y=y,x=x,type="lasso",trace=TRUE)
+modelno=which.min(cvlasso$cv)
+t=cvlasso$index[modelno] 
+
+lassobeta=coef(lasso,newx=x,s=t,mode="fraction")
+
+yhat=predict(lasso,newx=x,s=t,mode="fraction")$fit
+
+R2_lasso=sum((yhat-mean(y))^2)/sum((y-mean(y))^2)
+
+print(c("The R2 of OLS: ", R2_OLS))
+print(c("The R2 of lasso (best model): ", R2_lasso))
+```
+
+
+
+
+

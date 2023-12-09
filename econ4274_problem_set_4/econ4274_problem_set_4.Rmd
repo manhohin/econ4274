@@ -1,0 +1,176 @@
+---
+title: "Econ4274_problem_set_4"
+author: "Man Adrian Ho Hin"
+date: '2023-05-02'
+output:
+  word_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Question 1
+```{r }
+rm(list=ls())
+DATA = read.csv("hospital_choice.csv")
+
+LPM=lm(Ducla~income + distance + old, data=DATA)
+logit=glm(Ducla~income + distance + old, data=DATA,family = binomial(link='logit'))
+probit=glm(Ducla~income + distance + old, data=DATA,family = binomial(link='probit'))
+
+R2_LPM = summary(LPM)$adj.r.squared
+
+LLF_ur_logit = logLik(logit)
+LLF_r_logit = logLik(glm(Ducla~1,data=DATA,family = binomial(link='logit')))
+R2_logit = 1-(LLF_ur_logit/LLF_r_logit)
+
+LLF_ur_probit = logLik(probit)
+LLF_r_probit = logLik(glm(Ducla~1,data=DATA,family = binomial(link='probit')))
+R2_probit = 1-(LLF_ur_probit/LLF_r_probit)
+
+R2_LPM;R2_logit;R2_probit
+
+library(stargazer)
+stargazer(LPM, logit, probit, type="html", out="1.html")
+
+# So in terms of the R^2, the performance of the models are at following ranking: linear > logit > probit
+```
+
+# Question 2a
+```{r 2a}
+rm(list=ls())
+set.seed(1)
+n = 200
+beta1 = 1
+beta2 = 0.5
+sigma = 2
+e = rnorm(n, 0, sigma)
+x = rgamma(n, 2)
+y = beta1 + beta2*x + e
+
+sample = cbind(e,x,y)
+```
+
+# Question 2b
+```{r 2b}
+L<-function(theta){
+  v=-sum(log((1/sqrt(2*pi*theta[3]^2))*exp(-((y-theta[1]-theta[2]*x)^2)/(2*theta[3]^2))))
+  return(v)
+}
+MLE=optim(c(1,1,1),L)
+
+MLE$par
+```
+
+# Question 2c
+```{r 2c}
+OLS = lm(y~x)
+
+OLS_coeff = c(OLS$coefficients, sd(OLS$residuals))
+OLS_coeff; MLE$par
+-MLE$value;logLik(OLS)
+
+# we can observe that the coefficient of both MLE and OLS are close together, also close to the true parameters of interest. The OLS might be better as a slightly closer estimations for beta1 and sigma, lower in the beta2 with extremely small value.
+```
+
+# Question 3a
+```{r 3a}
+rm(list=ls())
+DATA = read.csv("heating.csv")
+# individual: idcase
+# alternative: alt
+# choice: depvar
+# This dataset is in long mode
+library(mlogit)
+LDATA=mlogit.data(DATA,choice="depvar",shape="long", alt.var = "alt")
+```
+
+# Question 3b
+```{r 3b}
+DATA$region = as.factor(DATA$region)
+LDATA$region = as.factor(LDATA$region)
+
+m1=mlogit(depvar~ic+oc+0,data=LDATA)
+m2=mlogit(depvar~ic+oc+0 | income+agehed+rooms+0,data=LDATA)
+m3=mlogit(depvar~ic+oc+0 | income+agehed+rooms+region+0,data=LDATA)
+m0=mlogit(depvar~1,data=LDATA)
+
+m1R2=1-m1$logLik/m0$logLik
+m2R2=1-m2$logLik/m0$logLik
+m3R2=1-m3$logLik/m0$logLik
+m1R2;m2R2;m3R2
+
+library(stargazer)
+stargazer(m1,m2,m3, type="html", out="3b.html")
+```
+
+# Question 3c
+```{r 3c}
+# (i)
+ic_LDATA = LDATA
+ic_LDATA$ic[which(ic_LDATA$alt=="ec")] = ic_LDATA$ic[which(ic_LDATA$alt=="ec")]*0.9
+m4=mlogit(depvar~ic+oc+0 | income+agehed+rooms+region+0,data=ic_LDATA)
+
+# (ii)
+oc_LDATA = LDATA
+oc_LDATA$oc[which(oc_LDATA$alt=="ec")] = oc_LDATA$oc[which(oc_LDATA$alt=="ec")]*0.9
+m5=mlogit(depvar~ic+oc+0 | income+agehed++rooms+region+0,data=oc_LDATA)
+
+choice.vec=DATA$alt[DATA$depvar==TRUE]
+N=length(choice.vec)
+Ob.CP=table(choice.vec)/N
+
+Pr.CP3=colMeans(fitted.values(m3,outcome=FALSE))
+Pr.CP4=colMeans(fitted.values(m4,outcome=FALSE))
+Pr.CP5=colMeans(fitted.values(m5,outcome=FALSE))
+
+Ob.CP;Pr.CP3; Pr.CP4;Pr.CP5
+```
+
+
+# Question 4a
+```{r 4a}
+rm(list=ls())
+
+M = 50
+J = 3
+N = 10000
+
+DATA=read.csv("product.csv")
+DATA["MS"]=DATA$sales/N
+
+market_share = NULL
+for (i in 1:M){
+  market_share = rbind(market_share,c(1-sum(DATA$sales[which(DATA$market==i)]/N),DATA$sales[which(DATA$market==i)]/N))
+}
+
+market_share = as.data.frame(market_share)
+colnames(market_share) = c("MS0","MS1","MS2","MS3")
+market_share
+```
+
+# Question 4b
+```{r 4b}
+b=rep(0.001,4)
+
+Q<-function(beta){
+  RSS_matrix = NULL
+  X=as.matrix(DATA[which(DATA$market==1),][1:4])
+  for (i in 1:50){
+    Ob.MS=DATA$sales[which(DATA$market==i)]/N
+    uvec=X%*%beta
+    Pr.MS=exp(uvec)/(1+sum(exp(uvec)))
+    d=Ob.MS-Pr.MS
+    RSS=(1/J)*sum(d^2)
+    RSS_matrix = c(RSS_matrix, RSS)
+  }
+  return(sum(RSS_matrix)/M)
+}
+
+initial=b
+nls=optim(initial,Q,hessian=T)
+betahat=nls$par
+betahat
+```
