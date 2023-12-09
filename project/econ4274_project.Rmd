@@ -1,0 +1,91 @@
+---
+title: "project"
+author: "Man Adrian Ho Hin"
+date: '2023-05-26'
+output: word_document
+---
+
+```{r setup, include=FALSE}
+rm(list=ls())
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(stargazer)
+```
+
+
+
+```{r}
+load("/Users/adrian/Desktop/NSDUH_2021.RData")
+
+
+DATA = PUF2021_100622 %>% 
+  filter(sexident == 1 | sexident == 2 | sexident == 3) %>% 
+  filter(irwrkstat == 1 | irwrkstat == 2 | irwrkstat == 3) %>%
+  filter(wrknjbwks != 85 & wrknjbwks != 94 & wrknjbwks != 97 & wrknjbwks != 98) 
+
+DATA = DATA[,c('sexident','POVERTY3', 'IRPINC3', 'eduhighcat', 'irsex', 'CATAG6', 'ircigrc','iralcrc', 'irmjrc', 'ircocrc', 'irmarit', 'NEWRACE2', 'irwrkstat', 'wrkeffort', 'wrknjbwks', 'wrkrsnjob', 'wrkskipmo')]
+
+# isUnemployed ~ isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried+isCig+isAlc+isMj+isCoc+noWorkWeek+isNoWantWork
+
+DATA <- DATA %>% mutate(isLGBT = if_else(sexident > 1, 1, 0)) # is LGBT
+#DATA <- DATA %>% mutate(isPoverty = if_else(POVERTY3 == 1, 1, 0)) # poverty
+DATA <- DATA %>% mutate(isUnemployed = if_else(irwrkstat == 3, 1, 0)) # unemployed
+#DATA <- DATA %>% mutate(isEffort = if_else(wrkeffort == 1, 1, 0)) # efforts for finding works
+DATA <- DATA %>% mutate(isNoWantWork = if_else(wrkrsnjob == 2, 1, 0)) # efforts for finding works (on layoff)
+DATA <- DATA %>% mutate(noWorkWeek = wrknjbwks) # efforts for finding works
+DATA$noWorkWeek[DATA$noWorkWeek > 52] = 0 
+#DATA <- DATA %>% mutate(isLowIncome = if_else(IRPINC3 <= 2, 1, 0)) # income below $20,000
+DATA['eduhighcat'] = as.factor(DATA[,'eduhighcat']) # education level
+DATA <- DATA %>% mutate(isMale = if_else(irsex == 1, 1, 0)) # sex
+DATA['CATAG6'] = as.factor(DATA[,'CATAG6']) # age group
+DATA <- DATA %>% mutate(isCig = if_else(ircigrc == 1, 1, 0)) # assume cigarette user
+DATA <- DATA %>% mutate(isAlc = if_else(iralcrc == 1, 1, 0)) # assume alcohol user
+DATA <- DATA %>% mutate(isMj = if_else(irmjrc == 1, 1, 0)) # assume weed user
+DATA <- DATA %>% mutate(isCoc = if_else(ircocrc == 1, 1, 0)) # assume weed user
+DATA <- DATA %>% mutate(isMarried = if_else(irmarit != 4, if_else(irmarit != 99, 1, 0), 0)) # Marriage experience
+#DATA['isMarried'] = as.factor(DATA[,'isMarried']) 
+DATA['NEWRACE2'] = as.factor(DATA[,'NEWRACE2']) # Race
+
+LPM1=lm(isUnemployed~isLGBT, data=DATA)
+logit1=glm(isUnemployed~isLGBT, data=DATA,family = binomial(link='logit'))
+probit1=glm(isUnemployed~isLGBT, data=DATA,family = binomial(link='probit'))
+
+LPM2=lm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2, data=DATA)
+logit2=glm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2, data=DATA,family = binomial(link='logit'))
+probit2=glm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2, data=DATA,family = binomial(link='probit'))
+
+LPM3=lm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried, data=DATA)
+logit3=glm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried, data=DATA,family = binomial(link='logit'))
+probit3=glm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried, data=DATA,family = binomial(link='probit'))
+
+LPM4=lm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried+isCig+isAlc+isMj+isCoc+noWorkWeek+isNoWantWork, data=DATA)
+logit4=glm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried+isCig+isAlc+isMj+isCoc+noWorkWeek+isNoWantWork, data=DATA,family = binomial(link='logit'))
+probit4=glm(isUnemployed~isLGBT+CATAG6+isMale+NEWRACE2+eduhighcat+isMarried+isCig+isAlc+isMj+isCoc+noWorkWeek+isNoWantWork, data=DATA,family = binomial(link='probit'))
+
+stargazer(logit1,probit1,logit2,probit2,logit3,probit3,logit4,probit4,type="html",out="tab.html")
+```
+
+
+```{r}
+R2_LPM = summary(LPM4)$adj.r.squared 
+####
+LLF_ur_logit = logLik(logit4)
+LLF_r_logit = logLik(glm(isUnemployed~1,data=DATA,family = binomial(link='logit')))
+R2_logit = 1-(LLF_ur_logit/LLF_r_logit)
+####
+LLF_ur_probit = logLik(probit4)
+LLF_r_probit = logLik(glm(isUnemployed~1,data=DATA,family = binomial(link='probit')))
+R2_probit = 1-(LLF_ur_probit/LLF_r_probit)
+####
+R2_LPM;R2_logit;R2_probit
+```
+
+```{r}
+round(exp(logit4$coefficients),2) # only for logit
+```
+
+
+
+
+
+
